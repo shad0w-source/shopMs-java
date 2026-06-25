@@ -6,18 +6,19 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Image;
-import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -39,12 +40,14 @@ public class ProductCatalogPanel extends JPanel {
     private static final Color COLOR_TEXT_MUTED = new Color(107, 114, 128);
     private static final Color COLOR_BORDER = new Color(243, 244, 246);
     private static final Color COLOR_SECONDARY_BTN = new Color(212, 221, 247);
-    private static final Color COLOR_CART_BG = new Color(245, 247, 250);      
-    private static final Color COLOR_CART_HEADER = new Color(11, 37, 69);      
+    private static final Color COLOR_CART_BG = new Color(245, 247, 250);
+    private static final Color COLOR_CART_HEADER = new Color(11, 37, 69);
 
     private final Map<String, CartItem> cartMap = new HashMap<>();
     private JPanel cartItemsContainer;
     private JLabel subtotalLabel, taxLabel, grandTotalLabel, cartCountLabel;
+    private JPanel gridPanel;
+    private ArrayList<Product> products;
 
     // Fields to securely hold data access references
     private final ProductModel productModel;
@@ -63,10 +66,6 @@ public class ProductCatalogPanel extends JPanel {
 
         // Sidebar Cart View (Flushed clean to the top boundary edge)
         add(createCartPanel(), BorderLayout.EAST);
-
-        // Mock Default items inside reference sample
-        cartMap.put("FRESH MILK", new CartItem("FRESH MILK", "DAIRY", 4.20, 1));
-        cartMap.put("CROISSANT", new CartItem("CROISSANT", "BAKERY", 3.00, 2));
 
         updateCartUI();
     }
@@ -93,7 +92,7 @@ public class ProductCatalogPanel extends JPanel {
         searchField.setBackground(Color.WHITE);
         searchField.setBorder(BorderFactory.createLineBorder(new Color(230, 233, 238), 1));
         searchField.setPreferredSize(new Dimension(Integer.MAX_VALUE, 40));
-        
+
         searchField.addFocusListener(new FocusAdapter() {
             @Override
             public void focusGained(FocusEvent e) {
@@ -102,6 +101,7 @@ public class ProductCatalogPanel extends JPanel {
                     searchField.setForeground(COLOR_TEXT_MAIN);
                 }
             }
+
             @Override
             public void focusLost(FocusEvent e) {
                 if (searchField.getText().trim().isEmpty()) {
@@ -120,53 +120,43 @@ public class ProductCatalogPanel extends JPanel {
         catalogTitle.setBorder(new EmptyBorder(5, 2, 12, 0));
         headerWrapper.add(catalogTitle);
 
-        // Filter Controls
-        JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-        filterBar.setBackground(COLOR_BG);
-        String[] categories = {"ALL ITEMS", "BEVERAGES", "SNACKS", "BAKERY", "DAIRY"};
-        for (String cat : categories) {
-            JButton btn;
-            if (cat.equals("ALL ITEMS")) {
-                btn = new JButton(cat) {
-                    @Override
-                    protected void paintComponent(Graphics g) {
-                        Graphics2D g2 = (Graphics2D) g.create();
-                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                        g2.setColor(COLOR_PRIMARY);
-                        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                        g2.dispose();
-                        super.paintComponent(g);
-                    }
-                };
-                btn.setForeground(Color.WHITE);
-            } else {
-                btn = new JButton(cat);
-                btn.setBackground(COLOR_SECONDARY_BTN);
-                btn.setForeground(COLOR_PRIMARY);
-            }
-            btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
-            btn.setOpaque(false);
-            btn.setContentAreaFilled(false);
-            btn.setBorderPainted(false);
-            btn.setFocusPainted(false);
-            btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            btn.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
-            filterBar.add(btn);
-        }
-        headerWrapper.add(filterBar);
+        // // Filter Controls
+        // JPanel filterBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        // filterBar.setBackground(COLOR_BG);
+        // String[] categories = {"ALL ITEMS", "BEVERAGES", "SNACKS", "BAKERY", "DAIRY"};
+        // for (String cat : categories) {
+        //     JButton btn;
+        //     if (cat.equals("ALL ITEMS")) {
+        //         btn = new JButton(cat);
+        //         btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        //         btn.setForeground(Color.WHITE);
+        //         btn.setBackground(COLOR_PRIMARY);
+        //         btn.setBorderPainted(false);
+        //         btn.setFocusPainted(false);
+        //         btn.setPreferredSize(new Dimension(110, 36));
+        //         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        //     } else {
+        //         btn = new JButton(cat);
+        //         btn.setBackground(COLOR_SECONDARY_BTN);
+        //         btn.setForeground(COLOR_PRIMARY);
+        //     }
+        //     btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        //     btn.setOpaque(false);
+        //     btn.setContentAreaFilled(false);
+        //     btn.setBorderPainted(false);
+        //     btn.setFocusPainted(false);
+        //     btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        //     btn.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+        //     filterBar.add(btn);
+        // }
+        // headerWrapper.add(filterBar);
         headerWrapper.add(Box.createVerticalStrut(20));
         catalogPanel.add(headerWrapper, BorderLayout.NORTH);
 
         // Responsive grid view
-        JPanel gridPanel = new JPanel(new GridLayout(0, 3, 16, 20));
+        gridPanel = new JPanel(new GridLayout(0, 3, 16, 20));
         gridPanel.setBackground(COLOR_BG);
-
-        addProductCard(gridPanel, "CHOCOLATE BAR", "SNACKS", 2.50, 42, new Color(45, 35, 30));
-        addProductCard(gridPanel, "COCA COLA", "BEVERAGES", 1.75, 156, new Color(190, 25, 25));
-        addProductCard(gridPanel, "CROISSANT", "BAKERY", 3.00, 8, new Color(220, 145, 65));
-        addProductCard(gridPanel, "FRESH MILK", "DAIRY", 4.20, 24, new Color(210, 225, 240));
-        addProductCard(gridPanel, "OATMEAL COOKIE", "SNACKS", 1.50, 60, new Color(190, 150, 120));
-        addProductCard(gridPanel, "MINERAL WATER", "BEVERAGES", 1.20, 200, new Color(35, 120, 180));
+        loadProducts();
 
         JScrollPane scroll = new JScrollPane(gridPanel);
         scroll.setBorder(null);
@@ -176,19 +166,32 @@ public class ProductCatalogPanel extends JPanel {
         return catalogPanel;
     }
 
-    private void addProductCard(JPanel parent, String title, String category, double price, int stock, Color blockColor) {
+    public void loadProducts() {
+        products = productModel.findAllProductsForTable();
+        gridPanel.removeAll();
+        for (Product product : products) {
+            addProductCard(gridPanel, product.getName(), product.getCategory(), product.getPrice(), product.getStockQuantity(), product.getImageUrl());
+        }
+        gridPanel.revalidate();
+    }
+
+    private void addProductCard(JPanel parent, String title, String category, double price, int stock, String imageFileName) {
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createLineBorder(new Color(230, 235, 242), 1));
 
         JLabel imgLabel = new JLabel();
         try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/team1.png"));
+            File file = new File("resources/" + imageFileName);
+
+            // Read the image file system path
+            BufferedImage bufferedImage = ImageIO.read(file);
+            ImageIcon icon = new ImageIcon(bufferedImage);
             Image scaledImage = icon.getImage().getScaledInstance(100, 130, Image.SCALE_SMOOTH);
             imgLabel.setIcon(new ImageIcon(scaledImage));
         } catch (Exception e) {
             JPanel fallback = new JPanel();
-            fallback.setBackground(blockColor);
+            fallback.setBackground(new Color(45, 35, 30));
             fallback.setPreferredSize(new Dimension(100, 130));
             card.add(fallback, BorderLayout.NORTH);
         }
@@ -199,7 +202,9 @@ public class ProductCatalogPanel extends JPanel {
 
         JPanel details = new JPanel(null) {
             @Override
-            public Dimension getPreferredSize() { return new Dimension(140, 115); }
+            public Dimension getPreferredSize() {
+                return new Dimension(140, 115);
+            }
         };
         details.setBackground(Color.WHITE);
 
@@ -259,7 +264,7 @@ public class ProductCatalogPanel extends JPanel {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(COLOR_CART_HEADER);
         header.setBorder(new EmptyBorder(21, 18, 20, 18));
-        
+
         JPanel titleArea = new JPanel(new GridLayout(2, 1, 0, 2));
         titleArea.setOpaque(false);
         JLabel cartTitle = new JLabel("CART");
@@ -294,20 +299,38 @@ public class ProductCatalogPanel extends JPanel {
         checkoutContainer.setBackground(COLOR_CART_BG);
         checkoutContainer.setBorder(new EmptyBorder(16, 16, 16, 16));
 
-        JPanel row1 = new JPanel(new BorderLayout()); row1.setOpaque(false);
-        JLabel lblSub = new JLabel("SUBTOTAL"); lblSub.setFont(new Font("Segoe UI", Font.BOLD, 11)); lblSub.setForeground(COLOR_TEXT_MUTED);
-        subtotalLabel = new JLabel("$0.00"); subtotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 13)); subtotalLabel.setForeground(COLOR_TEXT_MAIN);
-        row1.add(lblSub, BorderLayout.WEST); row1.add(subtotalLabel, BorderLayout.EAST);
+        JPanel row1 = new JPanel(new BorderLayout());
+        row1.setOpaque(false);
+        JLabel lblSub = new JLabel("SUBTOTAL");
+        lblSub.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblSub.setForeground(COLOR_TEXT_MUTED);
+        subtotalLabel = new JLabel("$0.00");
+        subtotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        subtotalLabel.setForeground(COLOR_TEXT_MAIN);
+        row1.add(lblSub, BorderLayout.WEST);
+        row1.add(subtotalLabel, BorderLayout.EAST);
 
-        JPanel row2 = new JPanel(new BorderLayout()); row2.setOpaque(false);
-        JLabel lblTax = new JLabel("TAX (8%)"); lblTax.setFont(new Font("Segoe UI", Font.BOLD, 11)); lblTax.setForeground(COLOR_TEXT_MUTED);
-        taxLabel = new JLabel("$0.00"); taxLabel.setFont(new Font("Segoe UI", Font.BOLD, 13)); taxLabel.setForeground(COLOR_TEXT_MAIN);
-        row2.add(lblTax, BorderLayout.WEST); row2.add(taxLabel, BorderLayout.EAST);
+        JPanel row2 = new JPanel(new BorderLayout());
+        row2.setOpaque(false);
+        JLabel lblTax = new JLabel("TAX (8%)");
+        lblTax.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        lblTax.setForeground(COLOR_TEXT_MUTED);
+        taxLabel = new JLabel("$0.00");
+        taxLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        taxLabel.setForeground(COLOR_TEXT_MAIN);
+        row2.add(lblTax, BorderLayout.WEST);
+        row2.add(taxLabel, BorderLayout.EAST);
 
-        JPanel row3 = new JPanel(new BorderLayout()); row3.setOpaque(false);
-        JLabel lblTot = new JLabel("GRAND TOTAL"); lblTot.setFont(new Font("Segoe UI", Font.BOLD, 13)); lblTot.setForeground(COLOR_TEXT_MAIN);
-        grandTotalLabel = new JLabel("$0.00"); grandTotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 22)); grandTotalLabel.setForeground(COLOR_PRIMARY);
-        row3.add(lblTot, BorderLayout.WEST); row3.add(grandTotalLabel, BorderLayout.EAST);
+        JPanel row3 = new JPanel(new BorderLayout());
+        row3.setOpaque(false);
+        JLabel lblTot = new JLabel("GRAND TOTAL");
+        lblTot.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblTot.setForeground(COLOR_TEXT_MAIN);
+        grandTotalLabel = new JLabel("$0.00");
+        grandTotalLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        grandTotalLabel.setForeground(COLOR_PRIMARY);
+        row3.add(lblTot, BorderLayout.WEST);
+        row3.add(grandTotalLabel, BorderLayout.EAST);
 
         checkoutContainer.add(row1);
         checkoutContainer.add(Box.createVerticalStrut(8));
@@ -329,27 +352,23 @@ public class ProductCatalogPanel extends JPanel {
         clearBtn.setFocusPainted(false);
         clearBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         clearBtn.setPreferredSize(new Dimension(100, 44));
-        clearBtn.addActionListener(e -> { cartMap.clear(); updateCartUI(); });
+        clearBtn.addActionListener(e -> {
+            cartMap.clear();
+            updateCartUI();
+        });
 
-        JButton orderBtn = new JButton("MAKE ORDER") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(COLOR_PRIMARY);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
-        orderBtn.setOpaque(false);
-        orderBtn.setContentAreaFilled(false);
+        JButton orderBtn = new JButton("MAKE ORDER") ;
+        // orderBtn.setOpaque(false);
+        // orderBtn.setContentAreaFilled(false);
+        orderBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        orderBtn.setForeground(Color.WHITE);
+        orderBtn.setBackground(COLOR_PRIMARY);
         orderBtn.setBorderPainted(false);
         orderBtn.setFocusPainted(false);
         orderBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         orderBtn.setForeground(Color.WHITE);
         orderBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        
+
         // FIXED/ROUTED: Connected order submission action to clear maps
         orderBtn.addActionListener(e -> {
             if (!cartMap.isEmpty()) {
@@ -386,11 +405,10 @@ public class ProductCatalogPanel extends JPanel {
                     new EmptyBorder(10, 10, 10, 10)
             ));
 
-            JPanel imgBlock = new JPanel();
-            imgBlock.setBackground(new Color(210, 215, 222));
-            imgBlock.setPreferredSize(new Dimension(45, 45));
-            itemRow.add(imgBlock, BorderLayout.WEST);
-
+            // JPanel imgBlock = new JPanel();
+            // imgBlock.setBackground(new Color(210, 215, 222));
+            // imgBlock.setPreferredSize(new Dimension(45, 45));
+            // itemRow.add(imgBlock, BorderLayout.WEST);
             JPanel centerMeta = new JPanel(new GridLayout(3, 1, 0, 1));
             centerMeta.setBackground(Color.WHITE);
             centerMeta.setBorder(new EmptyBorder(0, 10, 0, 10));
@@ -408,7 +426,7 @@ public class ProductCatalogPanel extends JPanel {
 
             JButton minusBtn = new JButton("-");
             configureStepperButton(minusBtn);
-            
+
             JTextField qtyField = new JTextField(String.valueOf(item.quantity), 2);
             qtyField.setHorizontalAlignment(JTextField.CENTER);
             qtyField.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -420,11 +438,17 @@ public class ProductCatalogPanel extends JPanel {
             configureStepperButton(plusBtn);
 
             minusBtn.addActionListener(e -> {
-                if (item.quantity > 1) item.quantity--;
-                else cartMap.remove(item.name);
+                if (item.quantity > 1) {
+                    item.quantity--;
+                } else {
+                    cartMap.remove(item.name);
+                }
                 updateCartUI();
             });
-            plusBtn.addActionListener(e -> { item.quantity++; updateCartUI(); });
+            plusBtn.addActionListener(e -> {
+                item.quantity++;
+                updateCartUI();
+            });
 
             stepperContainer.add(minusBtn);
             stepperContainer.add(qtyField);
@@ -469,12 +493,16 @@ public class ProductCatalogPanel extends JPanel {
     }
 
     private static class CartItem {
+
         String name, category;
         double price;
         int quantity;
 
         CartItem(String name, String category, double price, int quantity) {
-            this.name = name; this.category = category; this.price = price; this.quantity = quantity;
+            this.name = name;
+            this.category = category;
+            this.price = price;
+            this.quantity = quantity;
         }
     }
 }

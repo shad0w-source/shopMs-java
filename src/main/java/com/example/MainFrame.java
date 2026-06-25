@@ -23,10 +23,10 @@ import javax.swing.border.EmptyBorder;
 
 public class MainFrame extends JFrame {
 
-    private static final Color COLOR_SIDEBAR_BG = new Color(30, 41, 59);        
-    private static final Color COLOR_CONTENT_BG = new Color(241, 245, 249);     
-    private static final Color COLOR_PRIMARY_NAV = new Color(37, 99, 235);      
-    private static final Color COLOR_TEXT_MUTED = new Color(148, 163, 184);     
+    private static final Color COLOR_SIDEBAR_BG = new Color(30, 41, 59);
+    private static final Color COLOR_CONTENT_BG = new Color(241, 245, 249);
+    private static final Color COLOR_PRIMARY_NAV = new Color(37, 99, 235);
+    private static final Color COLOR_TEXT_MUTED = new Color(148, 163, 184);
 
     private CardLayout cardLayout;
     private JPanel routingPanel;
@@ -40,18 +40,22 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         setTitle("STOCK_PRO Engine");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1400, 880);
+        setSize(1200, 700);
         setLocationRelativeTo(null);
 
         try {
             String url = "jdbc:postgresql://localhost:5432/shopms";
             String user = "postgres";
             String password = "123456";
-            
+
             this.conn = DriverManager.getConnection(url, user, password);
             this.productModel = new ProductModel(conn);
             this.ordersModel = new OrdersModel(conn);
             System.out.println("Database tables successfully synchronized!");
+
+            //seed products
+            // productModel.addProduct("FRESH MILK", "DAIRY", "4.20", "10", "milk.png");
+            // productModel.addProduct("FRESH BREAD", "BAKERY", "4.20", "10", "bread.png");
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Database initialization crash! Model layer is running in fallback mock status.");
@@ -65,12 +69,12 @@ public class MainFrame extends JFrame {
         cardLayout = new CardLayout();
         routingPanel = new JPanel(cardLayout);
         routingPanel.setBackground(COLOR_CONTENT_BG);
-        
+
         // This line now compiles perfectly!
         routingPanel.add(new ProductCatalogPanel(productModel, ordersModel), "Sales");
-        
+
         routingPanel.add(new InventoryPanel(productModel), "Inventory");
-        routingPanel.add(new OrdersPanel(ordersModel), "Orders"); 
+        routingPanel.add(new OrdersPanel(ordersModel), "Orders");
 
         mainPanel.add(routingPanel, BorderLayout.CENTER);
         add(mainPanel);
@@ -144,8 +148,9 @@ public class MainFrame extends JFrame {
         SwingUtilities.invokeLater(() -> {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {}
-            
+            } catch (Exception ignored) {
+            }
+
             MainFrame mainFrame = new MainFrame();
             mainFrame.setVisible(true);
             mainFrame.requestFocusInWindow();

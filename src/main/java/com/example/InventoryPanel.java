@@ -2,29 +2,31 @@ package com.example;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.GridLayout;
-import java.awt.RenderingHints;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
+import java.util.ArrayList;
 
 import javax.swing.BorderFactory;
-import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 
 public class InventoryPanel extends JPanel {
 
@@ -32,15 +34,19 @@ public class InventoryPanel extends JPanel {
     private static final Color COLOR_PRIMARY = new Color(11, 37, 69);
     private static final Color COLOR_TEXT_MAIN = new Color(17, 24, 39);
     private static final Color COLOR_TEXT_MUTED = new Color(107, 114, 128);
-    private static final Color COLOR_BORDER = new Color(243, 244, 246);
+    private static final Color COLOR_BORDER = new Color(230, 233, 238);
     private static final Color COLOR_SECONDARY_BTN = new Color(212, 221, 247);
 
-    // 1. DECLARE THE MODEL FIELD HERE
     private ProductModel productModel;
+    private ArrayList<Product> products;
 
-    // 2. PASS THE MODEL INTO THE CONSTRUCTOR HERE
+    // JTable UI Architecture Components
+    private JTable inventoryTable;
+    private DefaultTableModel tableModel;
+
     public InventoryPanel(ProductModel productModel) {
-        this.productModel = productModel; // Save it to use inside the button click below
+        this.productModel = productModel;
+        this.products = new ArrayList<>();
 
         setLayout(new BorderLayout(0, 20));
         setBackground(COLOR_BG);
@@ -48,9 +54,9 @@ public class InventoryPanel extends JPanel {
 
         JPanel page = new JPanel(new BorderLayout());
         page.setBackground(Color.WHITE);
-        page.setBorder(BorderFactory.createLineBorder(new Color(230, 233, 238), 1));
+        page.setBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1));
 
-        // Top Header Section
+        // --- TOP HEADER SECTION ---
         JPanel headerWrapper = new JPanel();
         headerWrapper.setLayout(new BoxLayout(headerWrapper, BoxLayout.Y_AXIS));
         headerWrapper.setBackground(Color.WHITE);
@@ -66,7 +72,7 @@ public class InventoryPanel extends JPanel {
         searchField.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         searchField.setForeground(COLOR_TEXT_MUTED);
         searchField.setBackground(Color.WHITE);
-        searchField.setBorder(BorderFactory.createLineBorder(new Color(230, 233, 238), 1));
+        searchField.setBorder(BorderFactory.createLineBorder(COLOR_BORDER, 1));
         searchField.setPreferredSize(new Dimension(Integer.MAX_VALUE, 40));
         
         searchField.addFocusListener(new FocusAdapter() {
@@ -88,7 +94,7 @@ public class InventoryPanel extends JPanel {
         searchBarRow.add(searchField, BorderLayout.CENTER);
         headerWrapper.add(searchBarRow);
 
-        // Titles Row (Holds text on the left, Add Product Button on the right)
+        // Titles Row
         JPanel titleRow = new JPanel(new BorderLayout());
         titleRow.setBackground(Color.WHITE);
 
@@ -101,70 +107,85 @@ public class InventoryPanel extends JPanel {
         titleGroup.add(titleLabel);
         titleRow.add(titleGroup, BorderLayout.WEST);
 
-        // --- ADD PRODUCT BUTTON (ROUNDED DESIGN) ---
-        JButton addProductBtn = new JButton("+ ADD PRODUCT") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(COLOR_PRIMARY);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
-                g2.dispose();
-                super.paintComponent(g);
-            }
-        };
+        // Add Product Button
+        JButton addProductBtn = new JButton("+ ADD PRODUCT");
         addProductBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         addProductBtn.setForeground(Color.WHITE);
-        addProductBtn.setOpaque(false);
-        addProductBtn.setContentAreaFilled(false);
+        addProductBtn.setBackground(COLOR_PRIMARY);
+        addProductBtn.setOpaque(true);
+        addProductBtn.setContentAreaFilled(true);
         addProductBtn.setBorderPainted(false);
         addProductBtn.setFocusPainted(false);
         addProductBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         addProductBtn.setPreferredSize(new Dimension(140, 40));
         
         addProductBtn.addActionListener(e -> {
-            // Obtain the master application JFrame housing this context panel
             JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
-            
-            // Pass down your operational initialization database mapping model connection instance
             AddProductDialog dialog = new AddProductDialog(topFrame, this.productModel);
             dialog.setVisible(true);
             
             if (dialog.isSucceeded()) {
-                // Option context hook: refresh your list layout components dynamically here!
-                System.out.println("Product was added! Reloading dynamic UI list panels...");
+                // Instantly call the structural framework pipeline data model refresh method hook
+                refreshTable();
             }
         });
 
-        // Wrap button to maintain clean placement alignment
         JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         btnWrapper.setBackground(Color.WHITE);
         btnWrapper.add(addProductBtn);
         titleRow.add(btnWrapper, BorderLayout.EAST);
-        // ------------------------------------------
 
         headerWrapper.add(titleRow);
         page.add(headerWrapper, BorderLayout.NORTH);
 
-        // Table Rows Wrapper
-        JPanel rowsWrapper = new JPanel();
-        rowsWrapper.setLayout(new BoxLayout(rowsWrapper, BoxLayout.Y_AXIS));
-        rowsWrapper.setBackground(Color.WHITE);
+        // --- MODERN RE-ENGINEERED JTABLE INITIALIZATION ---
+        String[] columns = {"ITEM NAME", "CATEGORY", "UNIT PRICE", "STOCK LEVEL"};
+        
+        // Inline overrides to block manual cell-editing within standard programmatic grid selection grids
+        tableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; 
+            }
+        };
 
-        // Grid Columns Header Bar
-        rowsWrapper.add(createTableHeaderBar());
-        rowsWrapper.add(Box.createVerticalStrut(4));
+        inventoryTable = new JTable(tableModel);
+        inventoryTable.setRowHeight(48); // Spacious modern data density spacing layout
+        inventoryTable.setGridColor(COLOR_BORDER);
+        inventoryTable.setShowVerticalLines(false); // Clean modern web-style table striping design
+        inventoryTable.setShowHorizontalLines(true);
+        inventoryTable.setBackground(Color.WHITE);
+        inventoryTable.setSelectionBackground(new Color(243, 246, 255));
+        inventoryTable.setSelectionForeground(COLOR_TEXT_MAIN);
 
-        // Populating mock inventory display rows
-        addInventoryRow(rowsWrapper, "Ice Cream Tub", "FROZEN", "$12.50", 450);
-        addInventoryRow(rowsWrapper, "Sparkling Water", "BEVERAGES", "$2.99", 1240);
-        addInventoryRow(rowsWrapper, "Organic Whole Milk", "DAIRY", "$5.45", 12);
-        addInventoryRow(rowsWrapper, "Greek Yogurt 0%", "DAIRY", "$4.20", 88);
+        // Styling the Native Table Column Group Headers
+        JTableHeader tableHeader = inventoryTable.getTableHeader();
+        tableHeader.setBackground(Color.WHITE);
+        tableHeader.setOpaque(true);
+        tableHeader.setPreferredSize(new Dimension(Integer.MAX_VALUE, 40));
+        tableHeader.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, COLOR_BORDER));
+        
+        DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                label.setForeground(COLOR_TEXT_MUTED);
+                label.setBackground(Color.WHITE);
+                label.setBorder(new EmptyBorder(0, 12, 0, 12));
+                return label;
+            }
+        };
+        tableHeader.setDefaultRenderer(headerRenderer);
 
-        JScrollPane scrollPane = new JScrollPane(rowsWrapper);
-        scrollPane.setBorder(new EmptyBorder(0, 10, 10, 10));
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
+        // Injecting Render Styles For Dynamic Cells
+        configureCustomCellRenderers();
+
+        // Putting the JTable Into a Styled Container Viewport Panel
+        JScrollPane scrollPane = new JScrollPane(inventoryTable);
+        scrollPane.setBorder(new EmptyBorder(0, 25, 10, 25));
+        scrollPane.setBackground(Color.WHITE);
+        scrollPane.getViewport().setBackground(Color.WHITE);
         page.add(scrollPane, BorderLayout.CENTER);
 
         JPanel bottomSpacer = new JPanel();
@@ -173,84 +194,89 @@ public class InventoryPanel extends JPanel {
         page.add(bottomSpacer, BorderLayout.SOUTH);
 
         add(page, BorderLayout.CENTER);
+
+        // Load the database entities safely inside initial view bootstrap initialization pipeline
+        refreshTable();
     }
 
-    private JPanel createTableHeaderBar() {
-        JPanel headerBar = new JPanel(null) {
-            @Override
-            public Dimension getPreferredSize() { return new Dimension(Integer.MAX_VALUE, 40); }
-            @Override
-            public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, 40); }
-        };
-        headerBar.setBackground(Color.WHITE);
-        headerBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDER));
-
-        String[] headers = {"ITEM NAME", "CATEGORY", "UNIT PRICE", "STOCK LEVEL", "ACTIONS"};
-        int[] boundsX = {25, 225, 385, 545, 745};
-        int[] widths = {180, 140, 140, 160, 140};
-
-        for (int i = 0; i < headers.length; i++) {
-            JLabel label = new JLabel(headers[i]);
-            label.setFont(new Font("Segoe UI", Font.BOLD, 11));
-            label.setForeground(COLOR_TEXT_MUTED);
-            label.setBounds(boundsX[i], 0, widths[i], 40);
-            headerBar.add(label);
+    /**
+     * Refreshes the dataset displaying inside the user interface by querying the data layer model context maps.
+     */
+    public void refreshTable() {
+        // Purge current context items
+        tableModel.setRowCount(0);
+        
+        // Fetch fresh instances using your active database tracking collection mapping
+        products = productModel.findAllProductsForTable();
+        
+        if (products != null) {
+            for (Product p : products) {
+                tableModel.addRow(new Object[]{
+                    p.getName(),
+                    p.getCategory().toUpperCase(), 
+                    String.format("$%.2f", p.getPrice()),
+                    p.getStockQuantity() // Passed down as an Integer type to preserve render math evaluation checks below
+                });
+            }
         }
-
-        return headerBar;
     }
 
-    private void addInventoryRow(JPanel parent, String itemName, String category, String unitPrice, int stock) {
-        JPanel row = new JPanel(null) {
+    /**
+     * Assembles render properties dynamically formatting the inner cell items.
+     */
+    private void configureCustomCellRenderers() {
+        // Base Content Column Cells Alignment Styling Hook
+        DefaultTableCellRenderer standardCellRenderer = new DefaultTableCellRenderer() {
             @Override
-            public Dimension getPreferredSize() { return new Dimension(Integer.MAX_VALUE, 65); }
-            @Override
-            public Dimension getMaximumSize() { return new Dimension(Integer.MAX_VALUE, 65); }
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel c = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                c.setBorder(new EmptyBorder(0, 12, 0, 12));
+                c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                
+                if (column == 0) {
+                    c.setFont(new Font("Segoe UI", Font.BOLD, 13));
+                    c.setForeground(COLOR_TEXT_MAIN);
+                } else if (column == 1) {
+                    c.setForeground(COLOR_TEXT_MUTED);
+                } else {
+                    c.setForeground(COLOR_TEXT_MAIN);
+                }
+                return c;
+            }
         };
-        row.setBackground(Color.WHITE);
-        row.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDER));
 
-        JLabel nameLabel = new JLabel(itemName);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        nameLabel.setForeground(COLOR_TEXT_MAIN);
-        nameLabel.setBounds(25, 22, 180, 20);
-        row.add(nameLabel);
+        inventoryTable.getColumnModel().getColumn(0).setCellRenderer(standardCellRenderer);
+        inventoryTable.getColumnModel().getColumn(1).setCellRenderer(standardCellRenderer);
+        inventoryTable.getColumnModel().getColumn(2).setCellRenderer(standardCellRenderer);
 
-        JLabel catLabel = new JLabel(category);
-        catLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        catLabel.setForeground(COLOR_TEXT_MUTED);
-        catLabel.setBounds(225, 22, 140, 20);
-        row.add(catLabel);
+        // Custom Visual Conditional Stock Level Column Renderer Cell Panel Matrix Block
+        inventoryTable.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                label.setHorizontalAlignment(SwingConstants.LEFT);
+                label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                
+                if (value instanceof Integer) {
+                    int stock = (Integer) value;
+                    label.setText("  STOCK: " + stock + "  ");
+                    label.setOpaque(true);
+                    
+                    if (stock <= 15) {
+                        label.setBackground(new Color(254, 226, 226));
+                        label.setForeground(new Color(220, 38, 38));
+                    } else {
+                        label.setBackground(new Color(240, 253, 244));
+                        label.setForeground(new Color(22, 101, 52));
+                    }
+                }
+                return label;
+            }
+        });
+    }
 
-        JLabel priceLabel = new JLabel(unitPrice);
-        priceLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        priceLabel.setForeground(COLOR_TEXT_MAIN);
-        priceLabel.setBounds(385, 22, 140, 20);
-        row.add(priceLabel);
-
-        JLabel stockLabel = new JLabel("STOCK: " + stock, SwingConstants.CENTER);
-        stockLabel.setOpaque(true);
-        if (stock <= 15) {
-            stockLabel.setBackground(new Color(254, 226, 226));
-            stockLabel.setForeground(new Color(220, 38, 38));
-        } else {
-            stockLabel.setBackground(new Color(240, 253, 244));
-            stockLabel.setForeground(new Color(22, 101, 52));
-        }
-        stockLabel.setFont(new Font("Segoe UI", Font.BOLD, 10));
-        stockLabel.setBounds(545, 18, 100, 26);
-        row.add(stockLabel);
-
-        JButton editBtn = new JButton("Update Stock");
-        editBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        editBtn.setForeground(COLOR_PRIMARY);
-        editBtn.setBackground(COLOR_SECONDARY_BTN);
-        editBtn.setFocusPainted(false);
-        editBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        editBtn.setBorder(BorderFactory.createEmptyBorder(4, 12, 4, 12));
-        editBtn.setBounds(745, 18, 110, 28);
-        row.add(editBtn);
-
-        parent.add(row);
+    // Retained signature method alias referencing implementation pipeline structure
+    public void loadProducts() {
+        refreshTable();
     }
 }
