@@ -32,7 +32,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
-public class ProductCatalogPanel extends JPanel {
+public class ProductCatalogPanel extends JPanel implements ProductChangeListener {
 
     private static final Color COLOR_BG = new Color(245, 247, 250);
     private static final Color COLOR_PRIMARY = new Color(11, 37, 69);
@@ -60,6 +60,8 @@ public class ProductCatalogPanel extends JPanel {
 
         setLayout(new BorderLayout());
         setBackground(COLOR_BG);
+
+        ProductEventBus.subscribe(this);
 
         // Grid Matrix View (Includes inner embedded search bar alignment)
         add(createCatalogGridPanel(), BorderLayout.CENTER);
@@ -156,6 +158,8 @@ public class ProductCatalogPanel extends JPanel {
         // Responsive grid view
         gridPanel = new JPanel(new GridLayout(0, 3, 16, 20));
         gridPanel.setBackground(COLOR_BG);
+
+
         loadProducts();
 
         JScrollPane scroll = new JScrollPane(gridPanel);
@@ -166,23 +170,29 @@ public class ProductCatalogPanel extends JPanel {
         return catalogPanel;
     }
 
+    @Override
+    public void onProductChanged() {
+        loadProducts();
+    }
+
     public void loadProducts() {
         products = productModel.findAllProductsForTable();
         gridPanel.removeAll();
         for (Product product : products) {
-            addProductCard(gridPanel, product.getName(), product.getCategory(), product.getPrice(), product.getStockQuantity(), product.getImageUrl());
+            addProductCard(gridPanel, product);
         }
         gridPanel.revalidate();
     }
 
-    private void addProductCard(JPanel parent, String title, String category, double price, int stock, String imageFileName) {
+    private void addProductCard(JPanel parent, Product product) {
+        String productId = Integer.toString(product.getId());
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createLineBorder(new Color(230, 235, 242), 1));
 
         JLabel imgLabel = new JLabel();
         try {
-            File file = new File("resources/" + imageFileName);
+            File file = new File("resources/" + product.getImageUrl());
 
             // Read the image file system path
             BufferedImage bufferedImage = ImageIO.read(file);
@@ -208,28 +218,28 @@ public class ProductCatalogPanel extends JPanel {
         };
         details.setBackground(Color.WHITE);
 
-        JLabel catLabel = new JLabel(category);
+        JLabel catLabel = new JLabel(product.getCategory());
         catLabel.setFont(new Font("Segoe UI", Font.BOLD, 10));
         catLabel.setForeground(COLOR_TEXT_MUTED);
         catLabel.setBounds(12, 10, 120, 14);
         details.add(catLabel);
 
-        JLabel titleLabel = new JLabel("<html><b>" + title + "</b></html>");
+        JLabel titleLabel = new JLabel("<html><b>" + product.getName() + "</b></html>");
         titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         titleLabel.setForeground(COLOR_TEXT_MAIN);
         titleLabel.setBounds(12, 24, 120, 36);
         titleLabel.setVerticalAlignment(SwingConstants.TOP);
         details.add(titleLabel);
 
-        JLabel priceLabel = new JLabel(String.format("$%.2f", price));
+        JLabel priceLabel = new JLabel(String.format("$%.2f", product.getPrice()));
         priceLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         priceLabel.setForeground(COLOR_PRIMARY);
         priceLabel.setBounds(12, 78, 80, 22);
         details.add(priceLabel);
 
-        JLabel stockLabel = new JLabel("STOCK: " + stock, SwingConstants.CENTER);
+        JLabel stockLabel = new JLabel("STOCK: " + product.getStockQuantity(), SwingConstants.CENTER);
         stockLabel.setOpaque(true);
-        if (stock <= 10) {
+        if (product.getStockQuantity() <= 10) {
             stockLabel.setBackground(new Color(254, 226, 226));
             stockLabel.setForeground(new Color(220, 38, 38));
         } else {
@@ -243,11 +253,18 @@ public class ProductCatalogPanel extends JPanel {
         card.add(details, BorderLayout.CENTER);
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         card.addMouseListener(new MouseAdapter() {
+            @Override
             public void mousePressed(MouseEvent evt) {
-                if (cartMap.containsKey(title)) {
-                    cartMap.get(title).quantity++;
+                if (cartMap.containsKey(productId)) {
+                    cartMap.get(productId).quantity++;
                 } else {
-                    cartMap.put(title, new CartItem(title, category, price, 1));
+                    cartMap.put(productId ,new CartItem(
+                        product.getId(), 
+                        product.getName(), 
+                        product.getCategory(),
+                        product.getPrice(), 
+                        1
+                    ));
                 }
                 updateCartUI();
             }
@@ -373,6 +390,9 @@ public class ProductCatalogPanel extends JPanel {
         orderBtn.addActionListener(e -> {
             if (!cartMap.isEmpty()) {
                 // Here is where you parse and push your cart items into `ordersModel`
+                for (CartItem item : cartMap.values()) {
+                    System.out.println(item.toString());
+                }
                 System.out.println("Order pushed down successfully through OrdersModel flow.");
                 cartMap.clear();
                 updateCartUI();
@@ -496,13 +516,21 @@ public class ProductCatalogPanel extends JPanel {
 
         String name, category;
         double price;
-        int quantity;
+        int quantity, id;
 
-        CartItem(String name, String category, double price, int quantity) {
+        CartItem(int id, String name, String category, double price, int quantity) {
+            this.id = id;
             this.name = name;
             this.category = category;
             this.price = price;
             this.quantity = quantity;
         }
+
+        @Override
+        public String toString() {
+            return String.format("CartItem[id=%d, name='%s', category='%s', price=%f, quantity=%d]", id, name, category, price, quantity);
+        }
+
+        
     }
 }

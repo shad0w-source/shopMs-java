@@ -38,7 +38,11 @@ public class ProductModel {
                 ps.setDouble(3, price);
                 ps.setInt(4, stock);
                 ps.setString(5, uploadedFileName);
-                return ps.executeUpdate() > 0;
+                boolean result = ps.executeUpdate() > 0;
+                if (result) {
+                    ProductEventBus.notifyProductChanged();
+                    return true;
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
